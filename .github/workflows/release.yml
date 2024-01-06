@@ -29,4 +29,4 @@ jobs:
         goarch: ${{ matrix.goarch }}
         goversion: "1.21.5"
         ldflags: " -X 'allaboutapps.dev/aw/de-witt/internal/config.ModuleName=allaboutapps.dev/aw/de-witt' -X 'allaboutapps.dev/aw/de-witt/internal/config.Commit=unknown' -X 'allaboutapps.dev/aw/de-witt/internal/config.BuildDate=2024-01-06T12:50:34+00:00' "
-        extra_files: LICENSE
+        extra_files: LICENSE config.yml.sample README.md

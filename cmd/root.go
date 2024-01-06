@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"allaboutapps.dev/aw/de-witt/internal/config"
@@ -37,6 +38,7 @@ func Execute() {
 
 func init() {
 	rootCmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
+	rootCmd.Flags().StringP("config", "c", "", "(Optional) config file path")
 }
 
 func main(cmd *cobra.Command, args []string) {
@@ -58,7 +60,22 @@ func main(cmd *cobra.Command, args []string) {
 	}
 
 	// read config from file
-	configPath := getEnv("DE_WITT_CONFIG_PATH", "config.yml")
+	ex, err := os.Executable()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get executable path")
+	}
+	exPath := filepath.Dir(ex)
+	configPath := filepath.Join(exPath, "config.yml")
+
+	// check if config file is provided
+	configFlag, err := cmd.Flags().GetString("config")
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get config flag")
+	}
+	if configFlag != "" {
+		configPath = configFlag
+	}
+
 	configFile, err := os.Open(configPath)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to open config file")

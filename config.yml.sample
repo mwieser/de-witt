@@ -1,0 +1,18 @@
+de-witt:
+  auth:
+   username: "<EMAIL>"
+   apiToken: "<TOKEN>"
+  internalJiraURL: "https://my-internal-jira.atlassian.net"
+  external:
+   - name: "test1"
+     jiraURL: "https://my-test1-external-jira.atlassian.net"
+     projects:
+      - externalProjectKey: "TEST"
+        internalIssueKey: "SOME-2"
+   - name: "test2"
+     jiraURL: "https://my-test2-external-jira.atlassian.net"
+     epics:
+      - externalEpicKey: "TEST2-12"
+        internalIssueKey: "OTHER-1"
+      - externalEpicKey: "TEST-23"
+        internalIssueKey: "OTHER-2"

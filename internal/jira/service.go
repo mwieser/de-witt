@@ -258,57 +258,69 @@ func (s *Service) getInternalIssueKey(worklog WorklogRecord) (string, error) {
 }
 
 func (s *Service) GetWorkslogsByDate(date time.Time) ([]WorklogRecord, error) {
-	log := log.With().Time("date", date).Logger()
-
 	worklogs := make([]WorklogRecord, 0)
-	dateString := date.Format("2006-01-02")
 
 	for _, external := range s.config.External {
-		issues, err := s.getIssuesWithWorklogByDate(external.JiraURL, date)
+		w, err := s.getWorkslogsByDateForJira(external.JiraURL, date)
 		if err != nil {
-			log.Debug().Err(err).Msg("failed to get issues by date")
 			return nil, err
 		}
 
-		for _, issue := range issues {
-			for _, worklog := range issue.Fields.Worklog.Worklogs {
-				if worklog.Author.EmailAddress != s.config.Auth.Username {
-					// skip worklogs from other users
-					continue
-				}
+		worklogs = append(worklogs, w...)
+	}
 
-				if worklog.Started == nil {
-					// skip worklogs without started date
-					continue
-				}
+	return worklogs, nil
+}
 
-				started := (time.Time)(*worklog.Started)
-				if started.Format("2006-01-02") != dateString {
-					// skip worklogs with different date
-					continue
-				}
+func (s *Service) getWorkslogsByDateForJira(jiraURL string, date time.Time) ([]WorklogRecord, error) {
+	log := log.With().Time("date", date).Str("jiraURL", jiraURL).Logger()
+	worklogs := make([]WorklogRecord, 0)
+	dateString := date.Format("2006-01-02")
 
-				if issue.Fields.Project.Key == "" && issue.Fields.Parent == nil {
-					return nil, fmt.Errorf("issue %v has no project and no parent", issue.Key)
-				}
+	issues, err := s.getIssuesWithWorklogByDate(jiraURL, date)
+	if err != nil {
+		log.Debug().Err(err).Msg("failed to get issues by date")
+		return nil, err
+	}
 
-				worklogRecord := WorklogRecord{
-					JiraURL:          external.JiraURL,
-					WorklogID:        worklog.ID,
-					IssueKey:         issue.Key,
-					TimeSpent:        worklog.TimeSpent,
-					TimeSpentSeconds: worklog.TimeSpentSeconds,
-					ProjectKey:       issue.Fields.Project.Key,
-					Started:          started,
-					Comment:          worklog.Comment,
-				}
-
-				if issue.Fields.Parent != nil {
-					worklogRecord.ParrentKey = issue.Fields.Parent.Key
-				}
-
-				worklogs = append(worklogs, worklogRecord)
+	for _, issue := range issues {
+		for _, worklog := range issue.Fields.Worklog.Worklogs {
+			if worklog.Author.EmailAddress != s.config.Auth.Username {
+				// skip worklogs from other users
+				continue
 			}
+
+			if worklog.Started == nil {
+				// skip worklogs without started date
+				continue
+			}
+
+			started := (time.Time)(*worklog.Started)
+			if started.Format("2006-01-02") != dateString {
+				// skip worklogs with different date
+				continue
+			}
+
+			if issue.Fields.Project.Key == "" && issue.Fields.Parent == nil {
+				return nil, fmt.Errorf("issue %v has no project and no parent", issue.Key)
+			}
+
+			worklogRecord := WorklogRecord{
+				JiraURL:          jiraURL,
+				WorklogID:        worklog.ID,
+				IssueKey:         issue.Key,
+				TimeSpent:        worklog.TimeSpent,
+				TimeSpentSeconds: worklog.TimeSpentSeconds,
+				ProjectKey:       issue.Fields.Project.Key,
+				Started:          started,
+				Comment:          worklog.Comment,
+			}
+
+			if issue.Fields.Parent != nil {
+				worklogRecord.ParrentKey = issue.Fields.Parent.Key
+			}
+
+			worklogs = append(worklogs, worklogRecord)
 		}
 	}
 

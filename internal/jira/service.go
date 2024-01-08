@@ -1,12 +1,14 @@
 package jira
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
 	"allaboutapps.dev/aw/de-witt/internal/config"
+	"allaboutapps.dev/aw/de-witt/internal/util"
 	jira "github.com/andygrunwald/go-jira"
 	"github.com/rs/zerolog/log"
 )
@@ -326,7 +328,6 @@ func (s *Service) getIssuesWithWorklogByDate(jiraURL string, date time.Time) ([]
 	jql := "worklogDate = " + dateString + " AND worklogAuthor = currentUser()"
 	issues, _, err := jiraClient.Issue.Search(jql, &jira.SearchOptions{
 		Fields: []string{
-			"worklog",
 			"project",
 			"parent",
 		},
@@ -336,5 +337,61 @@ func (s *Service) getIssuesWithWorklogByDate(jiraURL string, date time.Time) ([]
 		return nil, err
 	}
 
+	// load worklogs for each issue the user worked on today
+	for _, issue := range issues {
+		log = log.With().Str("issue", issue.Key).Logger()
+
+		worklogs, err := s.getWorklogs(jiraURL, issue.Key, util.StartOfDay(date))
+		if err != nil {
+			log.Debug().Err(err).Msg("failed to get worklogs")
+			return nil, err
+		}
+
+		issue.Fields.Worklog = worklogs
+	}
+
 	return issues, nil
+}
+
+func (s *Service) getWorklogs(jiraURL string, issueKey string, startedAfter time.Time) (*jira.Worklog, error) {
+	log := log.With().Str("jiraURL", jiraURL).Str("issueKey", issueKey).Time("startedAfter", startedAfter).Logger()
+
+	jiraClient, err := jira.NewClient(s.client, jiraURL)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create jira client")
+		return nil, err
+	}
+
+	maxResults := s.config.WorklogsPerIssue
+	if maxResults == 0 {
+		maxResults = 100
+	}
+
+	req, err := jiraClient.NewRequest("GET", fmt.Sprintf("/rest/api/2/issue/%s/worklog?startedAfter=%d&maxResults=%d", issueKey, startedAfter.UnixMilli(), maxResults), nil)
+	if err != nil {
+		log.Err(err).Msg("failed to build load worklogs request")
+		return nil, err
+	}
+	response, err := jiraClient.Do(req, nil)
+	if err != nil {
+		bodyRaw, _ := io.ReadAll(response.Body)
+		log.Debug().Str("body", string(bodyRaw)).Err(err).Msg("failed to load worklog")
+
+		log.Err(err).Msg("failed to load worklog")
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		log.Err(err).Msg("failed to load worklog, status not OK")
+		return nil, fmt.Errorf("failed to load worklog, status not OK")
+	}
+
+	worklogs := new(jira.Worklog)
+	defer response.Body.Close()
+	if err := json.NewDecoder(response.Body).Decode(worklogs); err != nil {
+		log.Err(err).Msg("failed to unmarshal worklogs")
+		return nil, err
+	}
+
+	return worklogs, nil
 }

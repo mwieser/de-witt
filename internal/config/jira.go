@@ -23,8 +23,9 @@ type Epic struct {
 }
 
 type AppConfig struct {
-	Auth            Auth           `yaml:"auth"`
-	InternalJiraURL string         `yaml:"internalJiraURL"`
-	External        []ExternalJira `yaml:"external"`
-	Debug           bool           `yaml:"debug"`
+	Auth             Auth           `yaml:"auth"`
+	InternalJiraURL  string         `yaml:"internalJiraURL"`
+	External         []ExternalJira `yaml:"external"`
+	Debug            bool           `yaml:"debug"`
+	WorklogsPerIssue int            `yaml:"worklogsPerIssue"`
 }

@@ -143,6 +143,23 @@ func (s *Service) BookInternal(date time.Time) error {
 		globalLogger.Info().Str("issue", internalIssueKey).Str("timeSpent", worklog.TimeSpent).Msg("")
 	}
 
+	internalBookings, err := s.getWorkslogsByDateForJira(s.config.InternalJiraURL, date)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get internal worklogs by date")
+		return err
+	}
+
+	// get sum of all internal bookings
+	internalBookingsSum := 0
+	for _, worklog := range internalBookings {
+		internalBookingsSum += worklog.TimeSpentSeconds
+	}
+
+	// print jira format of internal bookings
+	sumDuration := time.Duration(internalBookingsSum) * time.Second
+	formattedDuration := sumDuration.String()
+	log.Info().Str("sumDuration", formattedDuration).Msg("")
+
 	return nil
 }
 
